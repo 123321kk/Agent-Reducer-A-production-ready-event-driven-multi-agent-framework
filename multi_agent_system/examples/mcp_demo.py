@@ -28,7 +28,7 @@ async def main():
         await mcp_adapter.connect_and_register(
             server_name="web",
             command="uvx",
-            args=["mcp-server-fetch"]
+            args=["--quiet", "mcp-server-fetch"]
         )
         
         # B. 接入 filesystem (本地文件系统)

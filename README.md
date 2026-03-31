@@ -107,7 +107,7 @@ async def main():
     await mcp_adapter.connect_and_register(
         server_name="web",
         command="uvx",
-        args=["mcp-server-fetch"]
+        args=["--quiet", "mcp-server-fetch"]
     )
     
     # 2. 定义任务目标和 Agent 人设 (换肤)

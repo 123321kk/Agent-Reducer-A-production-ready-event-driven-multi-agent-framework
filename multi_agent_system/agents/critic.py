@@ -36,9 +36,16 @@ class CriticAgent(BaseAgent):
         domain_config = context.get("domain_config", {})
         
         # 1. 寻找该步骤相关的 Artifact 引用
-        # 假设上游步骤刚完成，Orchestrator 会通过某种方式告诉 Critic 验证哪个步骤
-        # 这里简化处理：Critic 接收到的 TASK_ASSIGNMENT 消息中包含了被验证步骤的 step_id
-        target_step_id = message.payload.get("target_step_id", step_id)
+        # Critic 步骤依赖于上游的执行步骤，所以我们验证它的依赖项
+        target_step_id = message.payload.get("target_step_id")
+        if not target_step_id:
+            # 如果没有显式指定，则取当前步骤的第一个依赖项
+            current_step = context.get("step_states", {}).get(step_id)
+            if current_step and current_step.dependencies:
+                target_step_id = current_step.dependencies[0]
+            else:
+                target_step_id = step_id
+
         target_step_state = context.get("step_states", {}).get(target_step_id)
         
         # 2. 获取 Artifact 内容

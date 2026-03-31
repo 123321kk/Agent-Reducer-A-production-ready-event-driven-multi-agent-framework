@@ -14,7 +14,7 @@ class Artifact(BaseModel):
     
     # 存储路径或内联载荷
     storage_uri: Optional[str] = Field(None, description="如果产物过大（如 CSV 文件），存储在本地或云端的 URI")
-    inline_payload: Optional[Dict[str, Any]] = Field(None, description="如果产物较小（如 JSON），直接存储载荷内容")
+    inline_payload: Optional[Any] = Field(None, description="如果产物较小（如 JSON/文本），直接存储载荷内容")
     
     # 摘要与元数据
     summary: Optional[str] = Field(None, description="产物的简短摘要，供其他 Agent 参考")

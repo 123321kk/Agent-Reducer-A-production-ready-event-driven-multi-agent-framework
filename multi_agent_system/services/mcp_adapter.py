@@ -1,5 +1,6 @@
 import asyncio
 from typing import Dict, Any, List, Optional
+from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -15,17 +16,12 @@ class MCPAdapter:
     def __init__(self):
         # 存储已建立连接的 MCP Server 会话: { "server_name": session }
         self.sessions: Dict[str, ClientSession] = {}
-        # 存储对应的 transport，用于后续正确关闭
-        self._transports = {}
+        # 管理所有连接的生命周期
+        self.exit_stack = AsyncExitStack()
 
     async def connect_and_register(self, server_name: str, command: str, args: List[str]):
         """
         通过 Stdio 连接到一个 MCP Server，并将其提供的所有工具注册为我们系统的 Skill。
-        
-        Args:
-            server_name (str): 你为该 Server 定义的命名空间前缀
-            command (str): 启动 Server 的命令 (如 'npx', 'python')
-            args (List[str]): 启动参数
         """
         print(f"[MCPAdapter] Connecting to MCP Server '{server_name}' using: {command} {' '.join(args)}")
         
@@ -33,16 +29,14 @@ class MCPAdapter:
             # 1. 建立基于 stdio 的传输通道
             server_params = StdioServerParameters(command=command, args=args)
             
-            # 我们需要手动管理 context 以便在外部使用
-            transport_ctx = stdio_client(server_params)
-            read_stream, write_stream = await transport_ctx.__aenter__()
+            # 使用 AsyncExitStack 正确管理生命周期
+            read_stream, write_stream = await self.exit_stack.enter_async_context(stdio_client(server_params))
             
             # 2. 初始化会话
-            session = ClientSession(read_stream, write_stream)
+            session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
             await session.initialize()
             
             self.sessions[server_name] = session
-            self._transports[server_name] = transport_ctx
             
             # 3. 获取 Server 提供的工具列表
             tools_response = await session.list_tools()
@@ -85,8 +79,6 @@ class MCPAdapter:
         """
         关闭所有 MCP 连接。
         """
-        for server_name, ctx in self._transports.items():
-            print(f"[MCPAdapter] Closing connection to '{server_name}'...")
-            await ctx.__aexit__(None, None, None)
+        print("[MCPAdapter] Closing all connections...")
+        await self.exit_stack.aclose()
         self.sessions.clear()
-        self._transports.clear()
